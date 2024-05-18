@@ -1,6 +1,7 @@
 import pygame
 from typing_extensions import Self
 from math import sqrt
+import random
 
 class Agent:
     def __init__(self, position: pygame.Vector2, size: int, user_controlled: bool = False):
@@ -17,12 +18,18 @@ class Game:
         self.gravity = gravity
         self.air_resistance = air_resistance
         self.coordinates = coordinates
+        self.spawn_goal()
+        self.running = True
     def update(self):
+        if not running:
+            return
         self.agent.velocity.y += self.gravity
         self.agent.velocity.x *= self.air_resistance
         if abs(self.agent.velocity.x) <= 0.0001:
             self.agent.velocity.x = 0
         self.agent.position += self.agent.velocity
+        if self.check_goal():
+            self.spawn_goal()
         if self.check_game_over():
             self.game_over()
 
@@ -44,11 +51,27 @@ class Game:
         elif key == pygame.K_d:
             self.agent.velocity.x += 0.5
     def draw(self, screen: pygame.Surface):
-        pygame.draw.rect(screen, "green", (self.agent.position, self.field_size/10))
-        pygame.draw.rect(screen, "white", (self.coordinates.x, self.coordinates.y, self.coordinates.x + self.field_size.x, self.coordinates.y + self.field_size.y), width=1)
-
+        pygame.draw.rect(screen, "black", (self.coordinates, (self.coordinates.x + self.field_size.x+1, self.coordinates.y + self.field_size.y+1)), width=1)
+        if self.running:
+            pygame.draw.rect(screen, "green", (self.agent.position, self.field_size/10))
+            pygame.draw.rect(screen, "red", (self.goal_coordinates, self.field_size/10))
+        
     def game_over(self):
         self.agent = Agent(position=self.coordinates+(self.field_size/2), size=self.field_size.x/10, user_controlled=self.agent.user_controlled)
+        self.spawn_goal()
+        self.running = False
+
+    def spawn_goal(self):
+        min_x = self.coordinates.x + 10
+        max_x = self.coordinates.x + self.field_size.x - 10
+        min_y = self.coordinates.y + 10
+        max_y = self.coordinates.y + self.field_size.y - 10
+        self.goal_coordinates = pygame.Vector2((random.randint(min_x, max_x), random.randint(min_y, max_y)))
+    
+    def check_goal(self) -> bool:
+        if (self.goal_coordinates - self.agent.position).magnitude() < 5:
+            return True
+        return False
 
 pygame.init()
 screen = pygame.display.set_mode((800, 800))
@@ -82,9 +105,8 @@ while running:
                     game.handle_input(event)
 
         
-    screen.fill("black")
+    screen.fill("grey")
     for game in games:
-
         game.update()
         game.draw(screen)
 
