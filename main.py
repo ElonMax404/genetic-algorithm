@@ -4,22 +4,28 @@ from math import sqrt
 import random
 
 class Agent:
-    def __init__(self, position: pygame.Vector2, size: int, user_controlled: bool = False):
+    def __init__(self, position: pygame.Vector2, size: int, grid_coords: pygame.Vector2, user_controlled: bool = False):
+        self.grid_coords = grid_coords
         self.user_controlled = user_controlled
         self.position = position
         self.velocity = pygame.Vector2((0, 0))
         self.size = size
+    def global_to_relative(self, globl: pygame.Vector2) -> pygame.Vector2:
+        return globl - self.grid_coords
+
+    
 
 
 class Game:
     def __init__(self, coordinates: pygame.Vector2, field_size: pygame.Vector2, user_controlled: bool = False, gravity: float = 0.1, air_resistance: float = 0.99) -> Self:
         self.field_size = field_size
-        self.agent = Agent(position=coordinates+(field_size/2), size=field_size.x/10, user_controlled=user_controlled)
+        self.agent = Agent(position=coordinates+(field_size/2), size=field_size.x/10, grid_coords=coordinates, user_controlled=user_controlled)
         self.gravity = gravity
         self.air_resistance = air_resistance
         self.coordinates = coordinates
         self.spawn_goal()
         self.running = True
+
     def update(self):
         if not running:
             return
@@ -57,7 +63,9 @@ class Game:
             pygame.draw.rect(screen, "red", (self.goal_coordinates, self.field_size/10))
         
     def game_over(self):
-        self.running = False
+        self.agent = Agent(position=self.coordinates+(self.field_size/2), size=self.field_size.x/10,grid_coords=self.coordinates, user_controlled=self.agent.user_controlled)
+        self.spawn_goal()
+        # self.running = False
 
     def spawn_goal(self):
         min_x = self.coordinates.x + 10
