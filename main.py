@@ -57,8 +57,6 @@ class Game:
             pygame.draw.rect(screen, "red", (self.goal_coordinates, self.field_size/10))
         
     def game_over(self):
-        self.agent = Agent(position=self.coordinates+(self.field_size/2), size=self.field_size.x/10, user_controlled=self.agent.user_controlled)
-        self.spawn_goal()
         self.running = False
 
     def spawn_goal(self):
