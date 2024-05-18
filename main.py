@@ -1,19 +1,92 @@
 import pygame
 from typing_extensions import Self
-from math import sqrt
+from math import sqrt, exp
 import random
+import numpy as np # only gonna use it for softmax\
 
+class Evolution:
+    def __init__(self, n_games: int) -> Self:
+        self.games: list[Game] = [] 
+        for x in range(int(sqrt(n_games))):
+            for y in range(int(sqrt(n_games))):
+                field_wh = screen.get_size()[0]/int(sqrt(n_games))
+                game = Game(coordinates=pygame.Vector2((x*100, y*100)), field_size=pygame.Vector2((field_wh, field_wh)), user_controlled=True)
+                self.games.append(game)
+    def get_n_active(self) -> int:
+        n_active = 0
+        for game in self.games:
+            if game.running:
+                n_active += 1
+    def update(self):
+        for game in simulation.games:
+            game.update()
+            game.draw(screen)
+
+    
+    
+
+class Layer:
+    def __init__(self, n_inputs: int, n_neurons: int, activation: str) -> Self:
+        self.weights: list[list[float]] = []
+        self.biases: list[float] = []
+        if activation == "relu":
+            self.activationFn = self.activationRELU
+        elif activation == "softmax":
+            self.activationFn = self.activationSoftmax
+        else:
+            raise ValueError("Undefined activation function.")
+        for _ in range(n_neurons):
+            neuron_weight = []
+            for _ in range(n_inputs):
+                neuron_weight.append(random.uniform(-1, 1))
+            self.weights.append(neuron_weight)
+            self.biases.append(random.uniform(-1, 1))
+    def activationRELU(self, inputs: list[float]):
+        outputs = []
+        for input in inputs:
+            if input < 0:
+                outputs.append(0)
+            else:
+                outputs.append(input)
+        return outputs
+    def activationSoftmax(self, x): # shamelessly stolen from the internet
+        e_x = np.exp(x - np.max(x))
+        return e_x / e_x.sum(axis=0)
+    def forward(self, inputs: list[float]) -> list[float]:
+        layer_outputs = []
+        for neuron_weights, bias in zip(self.weights, self.biases):
+            neuron_output = 0
+            for input, weight in zip(inputs, neuron_weights):
+                neuron_output += input*weight
+            neuron_output += bias
+            layer_outputs.append(neuron_output)
+        layer_outputs = self.activationFn(layer_outputs)
+        return layer_outputs
+    
+
+class AgentNeuralNetwork:
+    def __init__(self) -> Self:
+        self.layers: list[Layer] = []
+        self.layers.append(Layer(6, 6, "relu"))
+        self.layers.append(Layer(6, 3, "softmax"))
+    def forward(self, inputs: list[float]) -> list[float]:
+        layer_inputs = inputs
+        for layer in self.layers:
+            layer_output = layer.forward(layer_inputs)
+            layer_inputs = layer_output
+        return layer_output
+
+            
 class Agent:
-    def __init__(self, position: pygame.Vector2, size: int, grid_coords: pygame.Vector2, user_controlled: bool = False):
+    def __init__(self, position: pygame.Vector2, size: int, grid_coords: pygame.Vector2, user_controlled: bool = False) -> Self:
         self.grid_coords = grid_coords
         self.user_controlled = user_controlled
         self.position = position
         self.velocity = pygame.Vector2((0, 0))
         self.size = size
+        self.nn = AgentNeuralNetwork()
     def global_to_relative(self, globl: pygame.Vector2) -> pygame.Vector2:
         return globl - self.grid_coords
-
-    
 
 
 class Game:
@@ -79,22 +152,17 @@ class Game:
             return True
         return False
 
+
 pygame.init()
 screen = pygame.display.set_mode((800, 800))
 pygame.display.set_caption("Genetic algorithm")
 clock = pygame.time.Clock()
 
-games: list[Game] = []
 
 # game = Game(coordinates=pygame.Vector2((0, 0)), field_size=pygame.Vector2((800, 800)), user_controlled=True)
 # games.append(game)
 
-n_games = 64
-for x in range(int(sqrt(n_games))):
-    for y in range(int(sqrt(n_games))):
-        field_wh = screen.get_size()[0]/int(sqrt(n_games))
-        game = Game(coordinates=pygame.Vector2((x*100, y*100)), field_size=pygame.Vector2((field_wh, field_wh)), user_controlled=True)
-        games.append(game)
+simulation = Evolution(64)
 
 running = True
 
@@ -106,16 +174,13 @@ while running:
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 running = False
-            for game in games:
+            for game in simulation.games:
                 if game.agent.user_controlled:
                     game.handle_input(event)
 
         
     screen.fill("grey")
-    for game in games:
-        game.update()
-        game.draw(screen)
-
+    simulation.update()
 
     pygame.display.flip()
     clock.tick(60)
