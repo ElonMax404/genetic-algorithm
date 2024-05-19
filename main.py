@@ -164,9 +164,9 @@ class Agent:
         if biggest_i == 0:
             self.velocity.y += -2
         elif biggest_i == 1:
-            self.velocity.x += -0.5
+            self.velocity.x += -0.1
         elif biggest_i == 2:
-            self.velocity.x += 0.5
+            self.velocity.x += 0.1
         elif biggest_i == 3:
             pass
         distance = (self.position - self.goal_coordinates).magnitude()
@@ -210,7 +210,7 @@ class Game:
             self.agent.position.y <= self.coordinates.y):
                 self.agent.fitness += -100
                 return True
-        elif self.n_ticks > 200:
+        elif self.n_ticks > 500:
             return True
         return False
     def handle_input(self, input_event: pygame.event.Event):
