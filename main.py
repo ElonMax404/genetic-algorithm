@@ -5,6 +5,11 @@ import random
 import numpy as np # only gonna use it for softmax
 import copy
 
+REACH_DISTANCE = 10
+GRAVITY = 0.5
+AIR_RESISTANCE = 0.99
+SIM_LENGTH = 300
+
 class Evolution:
     def __init__(self, n_games: int) -> Self:
         self.games: list[Game] = [] 
@@ -55,7 +60,7 @@ class Evolution:
             
     def get_best(scores: list[float]) -> list[int]:
         sorted_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
-        return sorted_indices[:3]  # Return indices of top 5 agents
+        return sorted_indices[:3]
 
     
 
@@ -171,12 +176,12 @@ class Agent:
             pass
         distance = (self.position - self.goal_coordinates).magnitude()
         self.fitness += (1 / (distance + 1e-5) )
-        self.fitness += abs(self.velocity.x) * 0.1
+        self.fitness += abs(self.velocity.x) * 0.5
         
 
 
 class Game:
-    def __init__(self, coordinates: pygame.Vector2, field_size: pygame.Vector2, user_controlled: bool = False, gravity: float = 0.5, air_resistance: float = 0.99) -> Self:
+    def __init__(self, coordinates: pygame.Vector2, field_size: pygame.Vector2, user_controlled: bool = False, gravity: float = GRAVITY, air_resistance: float = AIR_RESISTANCE) -> Self:
         self.field_size = field_size
         self.agent = Agent(position=coordinates+(field_size/2), size=field_size.x/10, grid_coords=coordinates, field_size=field_size, user_controlled=user_controlled)
         self.gravity = gravity
@@ -210,7 +215,7 @@ class Game:
             self.agent.position.y <= self.coordinates.y):
                 self.agent.fitness += -100
                 return True
-        elif self.n_ticks > 500:
+        elif self.n_ticks > SIM_LENGTH:
             return True
         return False
     def handle_input(self, input_event: pygame.event.Event):
@@ -231,7 +236,7 @@ class Game:
         self.running = False
     
     def check_goal(self) -> bool:
-        if (self.agent.goal_coordinates - self.agent.position).magnitude() < 10:
+        if (self.agent.goal_coordinates - self.agent.position).magnitude() < REACH_DISTANCE:
             return True
         return False
 
@@ -248,15 +253,19 @@ clock = pygame.time.Clock()
 simulation = Evolution(64)
 
 running = True
-
+sim_speed = 60
 while running:
-
+    pygame.display.set_caption(f"Genetic algorithm: {sim_speed}TPS")
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 running = False
+            elif event.key == pygame.K_LEFT:
+                sim_speed -= 10
+            elif event.key == pygame.K_RIGHT:
+                sim_speed += 10
             for game in simulation.games:
                 if game.agent.user_controlled:
                     game.handle_input(event)
@@ -266,6 +275,6 @@ while running:
     simulation.update()
 
     pygame.display.flip()
-    clock.tick(200)
+    clock.tick(sim_speed)
 
 pygame.quit()
