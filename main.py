@@ -2,18 +2,21 @@ import pygame
 from typing_extensions import Self
 from math import sqrt, exp
 import random
-import numpy as np # only gonna use it for softmax
 import copy
+import pickle
+
 
 REACH_DISTANCE = 10
 GRAVITY = 0.5
 AIR_RESISTANCE = 0.99
-SIM_LENGTH = 300
+SIM_LENGTH = 200
 
 class Evolution:
     def __init__(self, n_games: int) -> Self:
         self.games: list[Game] = [] 
         self.generation = 1
+        self.id = random.randint(100000, 999999)
+        self.display = True
         for x in range(int(sqrt(n_games))):
             for y in range(int(sqrt(n_games))):
                 field_wh = screen.get_size()[0]/int(sqrt(n_games))
@@ -28,13 +31,16 @@ class Evolution:
     def update(self):
         for game in simulation.games:
             game.update()
-            game.draw(screen)
+            if self.display:
+                game.draw(screen)
         
         if self.get_n_active() == 0:
+            if self.generation % 100 == 0:
+                self.save()
             fitness_scores = [game.agent.fitness for game in simulation.games]
             best_indices = Evolution.get_best(fitness_scores)
             best_agents = [simulation.games[i].agent for i in best_indices]
-            print(f"Generation {self.generation}, best agent: {best_agents[0].fitness}")
+            print(f"Generation {self.generation}, best agent: {best_agents[0].score}")
             for i, game in enumerate(simulation.games):
                 game.agent = Agent(
                     position=game.coordinates + (game.field_size / 2), 
@@ -48,19 +54,27 @@ class Evolution:
                 else:
                     best_one = random.choice(best_agents)
                     game.agent.brain = copy.deepcopy(best_one.brain)
-                    game.agent.brain.mutate(chance=30)
+                    game.agent.brain.mutate(chance=10)
                 
                 game.agent.spawn_goal()
                 game.n_ticks = 0
+                game.agent.score = 0
                 game.running = True
             self.generation += 1
-
+    def save(self):
+        fitness_scores = [game.agent.fitness for game in simulation.games]
+        best_indices = Evolution.get_best(fitness_scores)
+        best_agents = [simulation.games[i].agent for i in best_indices]
+        filename = f"simulations/simulation_{self.id}_{self.generation}gen_{best_agents[0].score}score.pkl"
+        with open(filename, "wb") as save:
+            pickle.dump(self, save, pickle.HIGHEST_PROTOCOL)
+        print(f"Saved current simulation to: {filename}")
 
 
             
     def get_best(scores: list[float]) -> list[int]:
         sorted_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
-        return sorted_indices[:3]
+        return sorted_indices[:5]
 
     
 
@@ -88,9 +102,13 @@ class Layer:
             else:
                 outputs.append(input)
         return outputs
-    def activationSoftmax(self, x): # shamelessly stolen from the internet
-        e_x = np.exp(x - np.max(x))
-        return e_x / e_x.sum(axis=0)
+
+    def activationSoftmax(self, inputs: list[float]): 
+        maxi = max(inputs)
+        e_x = [exp(i - maxi) for i in inputs]
+        sum_e_x = sum(e_x)
+        return [i / sum_e_x for i in e_x]
+
     def forward(self, inputs: list[float]) -> list[float]:
         layer_outputs = []
         for neuron_weights, bias in zip(self.weights, self.biases):
@@ -119,10 +137,10 @@ class AgentNeuralNetwork:
             for i in range(len(layer.weights)):
                 for j in range(len(layer.weights[i])):
                     if random.randint(0, 100) < chance:
-                        layer.weights[i][j] += random.uniform(-0.5, 0.5)
+                        layer.weights[i][j] += random.uniform(-0.1, 0.1)
             for i in range(len(layer.biases)):
                 if random.randint(0, 100) < chance:
-                    layer.biases[i] += random.uniform(-0.5, 0.5)
+                    layer.biases[i] += random.uniform(-0.1, 0.1)
 
             
 class Agent:
@@ -136,6 +154,7 @@ class Agent:
         self.field_size = field_size
         self.spawn_goal()
         self.fitness = 10
+        self.score = 0
     def global_to_relative(self, globl: pygame.Vector2) -> pygame.Vector2:
 
         return globl - self.grid_coords
@@ -147,7 +166,6 @@ class Agent:
         min_y = self.grid_coords.y + 20
         max_y = self.grid_coords.y + self.field_size.y - 20
         self.goal_coordinates = pygame.Vector2((random.randint(min_x, max_x), random.randint(min_y, max_y)))
-        # self.goal_coordinates = pygame.Vector2((self.grid_coords.x + 30, self.grid_coords.y + 30))
     def update(self):
         rel_pos = self.global_to_relative(self.position)
         posX = rel_pos.x
@@ -189,6 +207,7 @@ class Game:
         self.coordinates = coordinates
         self.running = True
         self.n_ticks = 0
+        self.score = 0
 
     def update(self):
         if self.running:
@@ -198,8 +217,9 @@ class Game:
                 self.agent.velocity.x = 0
             self.agent.position += self.agent.velocity
             if self.check_goal():
-                self.agent.fitness += 100
+                self.agent.fitness += 1000
                 self.n_ticks = 0
+                self.agent.score += 1
                 self.agent.spawn_goal()
             if self.check_game_over():
                 self.game_over()
@@ -247,10 +267,11 @@ pygame.display.set_caption("Genetic algorithm")
 clock = pygame.time.Clock()
 
 
-# game = Game(coordinates=pygame.Vector2((0, 0)), field_size=pygame.Vector2((800, 800)), user_controlled=True)
-# games.append(game)
 
-simulation = Evolution(64)
+# simulation = Evolution(64)
+simulation = pickle.load(open("simulations/simulation_412294_2000gen_76score.pkl", "rb"))
+
+
 
 running = True
 sim_speed = 60
@@ -261,11 +282,18 @@ while running:
             running = False
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
+                simulation.save()
                 running = False
-            elif event.key == pygame.K_LEFT:
+            elif event.key == pygame.K_LALT:
+                simulation.display = not simulation.display
+                print(f"Simulation display: {simulation.display}")
+            if event.key == pygame.K_LEFT:
                 sim_speed -= 10
             elif event.key == pygame.K_RIGHT:
                 sim_speed += 10
+            elif event.key == pygame.K_TAB:
+                simulation.save()
+                
             for game in simulation.games:
                 if game.agent.user_controlled:
                     game.handle_input(event)
@@ -276,5 +304,7 @@ while running:
 
     pygame.display.flip()
     clock.tick(sim_speed)
+
+
 
 pygame.quit()
